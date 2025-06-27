@@ -1,55 +1,64 @@
-import { Injectable } from '@nestjs/common';
-import * as winston from 'winston';
-import { LoggerConfig } from './logger-config';
-import { elasticTransport } from './transports/elastic-transport';
-import { cloudWatchTransport } from './transports/cloudwatch-transport';
-import { consoleTransport } from './transports/console-transport';
-import { userFormatter } from './formatters/user-formatter';
-import { defaultFormatter } from './formatters/default-formatter';
+import { Injectable, Scope } from '@nestjs/common';
+import { createLogger, Logger as WinstonLogger } from 'winston';
+import { LoggerConfig } from './logger.config';
+import { consoleTransport } from './transports/console.transport';
+import { elasticTransport } from './transports/elastic.transport';
+import { cloudWatchTransport } from './transports/cloudwatch.transport';
+import { defaultFormatter } from './formatters/default.formatter';
+import { userFormatter } from './formatters/user.formatter';
+import { Format } from 'logform';
+import type Transport from 'winston-transport';
 
-const formatterMap = {
-  user: userFormatter,
-  default: defaultFormatter,
-};
-
-const transportMap = {
+const transportMap: Record<string, Transport> = {
+  console: consoleTransport,
   elastic: elasticTransport,
   cloudwatch: cloudWatchTransport,
-  console: consoleTransport,
 };
 
-@Injectable()
+const formatterMap: Record<string, Format> = {
+  default: defaultFormatter,
+  user: userFormatter,
+};
+
+@Injectable({ scope: Scope.TRANSIENT })
 export class AppLogger {
-  private loggers: Record<string, winston.Logger> = {};
+  private logger: WinstonLogger;
+  private lastContext: string | undefined;
 
-  constructor() {
-    for (const moduleName in LoggerConfig.modules) {
-      const moduleConfig = LoggerConfig.modules[moduleName];
-      const transports = moduleConfig.destinations.map(dest => transportMap[dest]);
+  constructor() {}
 
-      this.loggers[moduleName] = winston.createLogger({
-        level: 'info',
-        format: winston.format.json(),
-        transports,
-      });
-    }
+  private buildLogger(context: string): WinstonLogger {
+    const config = LoggerConfig[context] || LoggerConfig['Default'];
+
+    const activeTransports: Transport[] = config.transports.map(
+      (name) => transportMap[name],
+    );
+    const formatter: Format = formatterMap[config.formatter];
+
+    return createLogger({
+      level: 'info',
+      format: formatter,
+      transports: activeTransports,
+    });
   }
 
-  log(
-    module: string,
-    level: 'info' | 'error' | 'warn' | 'debug' | 'verbose',
-    message: string,
-    meta: Record<string, any> = {},
-  ) {
-    const moduleConfig = LoggerConfig.modules[module] ?? LoggerConfig.modules['default'];
-    const formatterFn = formatterMap[moduleConfig.formatter] ?? formatterMap.default;
-    const logPayload = formatterFn(level, message, meta);
-
-    const logger = this.loggers[module];
-    if (logger) {
-      logger.log(level, logPayload.message, { meta: logPayload });
-    } else {
-      console.warn(`[Logger] Módulo desconhecido: ${module}`);
+  private getLogger(context: string): WinstonLogger {
+    if (!this.logger || this.lastContext !== context) {
+      this.logger = this.buildLogger(context);
+      this.lastContext = context;
     }
+    return this.logger;
+  }
+
+  log(message: string, context = 'Default', meta?: Record<string, any>) {
+    this.getLogger(context).info(message, { context, meta });
+  }
+
+  error(message: string, context = 'Default', trace?: string) {
+    this.getLogger(context).error(message, { context, trace });
+  }
+
+  warn(message: string, context = 'Default') {
+    this.getLogger(context).warn(message, { context });
   }
 }
