@@ -7,17 +7,12 @@ export class AppController {
 
   @Get()
   getHello(): string {
-    // Log de acesso simples (INFO)
     this.logger.log('Página inicial acessada', 'Default');
-
-    // Log de erro simulado (ERROR)
     this.logger.error(
       'Erro de teste simulado',
       'Default',
       'Stack trace de exemplo',
     );
-
-    // Log de aviso (WARN)
     this.logger.warn('Aviso de teste emitido', 'Default');
 
     return 'Hello World!';
@@ -29,7 +24,6 @@ export class AppController {
       throw new Error('Erro gerado propositalmente');
     } catch (error: unknown) {
       if (error instanceof Error) {
-        // Log de erro com stack trace
         this.logger.error(error.message, 'ErrorTest', error.stack);
       } else {
         this.logger.error('Erro desconhecido capturado', 'ErrorTest');
@@ -62,8 +56,6 @@ export class AppController {
       processador: 'i9',
       memoria: '16GB',
     };
-
-    // Log com objeto genérico (vai para labels no ECS)
     this.logger.log('Computador criado com sucesso', 'InfraModule', computador);
 
     return 'Log de computador registrado!';

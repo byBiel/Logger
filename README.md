@@ -171,10 +171,3 @@ warn(
 - Informações extras são adicionadas como `labels`.
 
 ---
-
-### 🚀 Futuras melhorias sugeridas
-
-- Suporte a `request.id`, `ip`, `user-agent` via interceptors.
-- Centralização de log externo (Logstash, APM).
-- Filtros por ambiente (ex: não logar no `dev` para CloudWatch).
-
