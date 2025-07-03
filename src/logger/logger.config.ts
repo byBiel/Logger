@@ -1,15 +1,27 @@
+export type TransportType = 'console' | 'elastic' | 'cloudwatch';
+export type FormatterType = 'ecs';
+export type LogLevel = 'info' | 'warn' | 'error' | 'debug';
+
 export interface LoggerModuleConfig {
-  transports: string[];
-  formatter: string;
+  level: LogLevel;
+  transports: TransportType[];
+  formatter: FormatterType;
 }
 
-export const LoggerConfig: Record<string, LoggerModuleConfig> = {
-  UserModule: {
-    transports: ['console', 'elastic'],
-    formatter: 'user',
-  },
-  Default: {
+export const LoggerConfig: Record<TransportType, LoggerModuleConfig> = {
+  console: {
+    level: 'info',
     transports: ['console'],
-    formatter: 'default',
+    formatter: 'ecs',
+  },
+  cloudwatch: {
+    level: 'info',
+    transports: ['cloudwatch', 'console'],
+    formatter: 'ecs',
+  },
+  elastic: {
+    level: 'info',
+    transports: ['elastic', 'console'],
+    formatter: 'ecs',
   },
 };

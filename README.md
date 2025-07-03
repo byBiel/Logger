@@ -1,98 +1,180 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+## 📦 AppLogger - Logger Centralizado com ECS para NestJS
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Este módulo fornece uma solução de log genérica, padronizada e pronta para produção usando Winston com suporte ao [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html), facilitando a integração com:
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+- 🔹 Console
+- 🔹 Elastic Stack (Elasticsearch + Kibana)
+- 🔹 AWS CloudWatch
 
-## Description
+---
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
-
-## Project setup
+### ✅ Instalação
 
 ```bash
-$ npm install
+npm install winston @elastic/ecs-winston-format winston-cloudwatch
 ```
 
-## Compile and run the project
+---
 
-```bash
-# development
-$ npm run start
+### ⚙️ Configuração
 
-# watch mode
-$ npm run start:dev
+#### 1. **Arquivos de transporte (**``**)**
 
-# production mode
-$ npm run start:prod
+```ts
+// console.transport.ts
+import { transports } from 'winston';
+
+export const consoleTransport = new transports.Console();
 ```
 
-## Run tests
-
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```ts
+// elastic.transport.ts
+export const elasticTransport = new transports.Http({
+  host: 'http://localhost:5000',
+  path: '/_bulk',
+  ssl: false,
+});
 ```
 
-## Deployment
+```ts
+// cloudwatch.transport.ts
+import WinstonCloudWatch from 'winston-cloudwatch';
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+export const cloudWatchTransport = new WinstonCloudWatch({
+  logGroupName: 'my-log-group',
+  logStreamName: 'my-stream',
+  awsRegion: 'us-east-1',
+});
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+#### 2. **Configuração de logger**
 
-Check out a few resources that may come in handy when working with NestJS:
+```ts
+// logger.config.ts
+export interface LoggerModuleConfig {
+  level: string;
+  transports: string[];
+  formatter: string;
+}
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+export const LoggerConfig: Record<'console' | 'elastic' | 'cloudwatch', LoggerModuleConfig> = {
+  console: {
+    level: 'info',
+    transports: ['console'],
+    formatter: 'ecs',
+  },
+  elastic: {
+    level: 'info',
+    transports: ['elastic', 'console'],
+    formatter: 'ecs',
+  },
+  cloudwatch: {
+    level: 'info',
+    transports: ['cloudwatch', 'console'],
+    formatter: 'ecs',
+  },
+};
+```
 
-## Support
+---
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+### 🧠 Uso no Controller (Exemplo real)
 
-## Stay in touch
+```ts
+import { Controller, Get } from '@nestjs/common';
+import { AppLogger } from './logger/logger.service';
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+@Controller()
+export class AppController {
+  constructor(private readonly logger: AppLogger) {}
 
-## License
+  @Get()
+  getHello(): string {
+    this.logger.log('Página acessada com sucesso.', 'Default');
+    this.logger.warn('Aviso de teste', 'Default');
+    this.logger.error('Erro de teste', 'Default', 'Stack trace opcional');
+    return 'Hello World!';
+  }
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+  @Get('user-log')
+  testUserLog(): string {
+    this.logger.log('Usuário criou uma conta', 'UserModule', {
+      userId: 'user123',
+      action: 'CREATE_ACCOUNT',
+      details: { username: 'gabriel', email: 'gabriel@email.com' },
+    });
+    return 'Log de usuário registrado!';
+  }
+}
+```
+
+---
+
+### 📄 Formato de Log Padrão (ECS)
+
+Exemplo de estrutura de log gerado:
+
+```json
+{
+  "@timestamp": "2025-07-03T18:00:00.000Z",
+  "log.level": "info",
+  "message": "Usuário criou uma conta",
+  "log": { "logger": "UserModule" },
+  "user": { "id": "user123" },
+  "event": { "action": "CREATE_ACCOUNT" },
+  "labels": {
+    "username": "gabriel",
+    "email": "gabriel@email.com"
+  }
+}
+```
+
+---
+
+### 🧹 APIs do AppLogger
+
+```ts
+log(
+  message: string,
+  context?: string,
+  meta?: LogMeta,
+  transport?: 'console' | 'elastic' | 'cloudwatch',
+): void
+```
+
+```ts
+error(
+  message: string,
+  context?: string,
+  traceOrMeta?: string | LogMeta,
+  transport?: 'console' | 'elastic' | 'cloudwatch',
+): void
+```
+
+```ts
+warn(
+  message: string,
+  context?: string,
+  meta?: LogMeta,
+  transport?: 'console' | 'elastic' | 'cloudwatch',
+): void
+```
+
+---
+
+### 🛡️ Boas práticas
+
+- **Não precisa se preocupar com a estrutura dos logs**, basta enviar os dados no objeto `meta`.
+- Os campos `userId`, `action` e `details` são tratados automaticamente conforme o [ECS](https://www.elastic.co/guide/en/ecs/current/index.html).
+- Informações extras são adicionadas como `labels`.
+
+---
+
+### 🚀 Futuras melhorias sugeridas
+
+- Suporte a `request.id`, `ip`, `user-agent` via interceptors.
+- Centralização de log externo (Logstash, APM).
+- Filtros por ambiente (ex: não logar no `dev` para CloudWatch).
+
