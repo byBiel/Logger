@@ -1,7 +1,4 @@
-import {
-  ElasticsearchTransport,
-  ElasticsearchTransportOptions,
-} from 'winston-elasticsearch';
+import { ElasticsearchTransport, ElasticsearchTransportOptions } from 'winston-elasticsearch';
 
 const esTransportOpts: ElasticsearchTransportOptions = {
   level: 'info',

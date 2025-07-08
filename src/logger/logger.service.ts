@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { Injectable, Scope } from '@nestjs/common';
 import { createLogger, Logger as WinstonLogger } from 'winston';
 import { ecsFormatter } from './logger.formatter';
@@ -26,10 +27,7 @@ export class AppLogger {
     });
   }
 
-  private getLogger(
-    context: LoggerContext,
-    transport: TransportType,
-  ): WinstonLogger {
+  private getLogger(context: LoggerContext, transport: TransportType): WinstonLogger {
     const key = `${context}:${transport}`;
     if (!this.loggers.has(key)) {
       this.loggers.set(key, this.buildLogger(transport));
@@ -95,10 +93,7 @@ export class AppLogger {
     meta?: LogMeta,
     transport: TransportType = DEFAULT_TRANSPORT,
   ): void {
-    this.getLogger(context, transport).info(
-      message,
-      this.toECSFields(context, meta),
-    );
+    this.getLogger(context, transport).info(message, this.toECSFields(context, meta));
   }
 
   error(
@@ -108,14 +103,8 @@ export class AppLogger {
     transport: TransportType = DEFAULT_TRANSPORT,
   ): void {
     const trace = typeof traceOrMeta === 'string' ? traceOrMeta : undefined;
-    const meta =
-      typeof traceOrMeta === 'object' && traceOrMeta !== null
-        ? traceOrMeta
-        : undefined;
-    this.getLogger(context, transport).error(
-      message,
-      this.toECSFields(context, meta, trace),
-    );
+    const meta = typeof traceOrMeta === 'object' && traceOrMeta !== null ? traceOrMeta : undefined;
+    this.getLogger(context, transport).error(message, this.toECSFields(context, meta, trace));
   }
 
   warn(
@@ -124,9 +113,6 @@ export class AppLogger {
     meta?: LogMeta,
     transport: TransportType = DEFAULT_TRANSPORT,
   ): void {
-    this.getLogger(context, transport).warn(
-      message,
-      this.toECSFields(context, meta),
-    );
+    this.getLogger(context, transport).warn(message, this.toECSFields(context, meta));
   }
 }

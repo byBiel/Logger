@@ -1,73 +1,31 @@
-## 📦 AppLogger - Logger Centralizado com ECS para NestJS
+# Logger Module
 
-Este módulo fornece uma solução de log genérica, padronizada e pronta para produção usando Winston com suporte ao [Elastic Common Schema (ECS)](https://www.elastic.co/guide/en/ecs/current/index.html), facilitando a integração com:
-
-- 🔹 Console
-- 🔹 Elastic Stack (Elasticsearch + Kibana)
-- 🔹 AWS CloudWatch
+Módulo de logger customizado para aplicações NestJS utilizando **Winston** com suporte a múltiplos destinos de log (transports), formato compatível com **Elastic Common Schema (ECS)** e integração com **CloudWatch** e **Elasticsearch**.
 
 ---
 
-### ✅ Instalação
+## 📦 Visão Geral
 
-```bash
-npm install winston @elastic/ecs-winston-format winston-cloudwatch
-```
+Este módulo fornece uma forma flexível e extensível para registrar logs em aplicações Node/NestJS. Ele suporta:
 
----
-
-### ⚙️ Configuração
-
-#### 1. **Arquivos de transporte (**``**)**
-
-```ts
-// console.transport.ts
-import { transports } from 'winston';
-
-export const consoleTransport = new transports.Console();
-```
-
-```ts
-// elastic.transport.ts
-export const elasticTransport = new transports.Http({
-  host: 'http://localhost:5000',
-  path: '/_bulk',
-  ssl: false,
-});
-```
-
-```ts
-// cloudwatch.transport.ts
-import WinstonCloudWatch from 'winston-cloudwatch';
-
-export const cloudWatchTransport = new WinstonCloudWatch({
-  logGroupName: 'my-log-group',
-  logStreamName: 'my-stream',
-  awsRegion: 'us-east-1',
-});
-```
+- Múltiplos **transports** (`console`, `cloudwatch`, `elastic`)
+- Formatação ECS para compatibilidade com ELK Stack
+- Injeção automática via `AppLogger` com escopo **transient**
+- Logs estruturados com informações como `userId`, `action`, `details`, e `stack_trace`
 
 ---
 
-#### 2. **Configuração de logger**
+## ⚙️ Estrutura do Módulo
+
+### Configuração (`logger.config.ts`)
+
+Define os níveis de log, os `transports` habilitados e o formato utilizado:
 
 ```ts
-// logger.config.ts
-export interface LoggerModuleConfig {
-  level: string;
-  transports: string[];
-  formatter: string;
-}
-
-export const LoggerConfig: Record<'console' | 'elastic' | 'cloudwatch', LoggerModuleConfig> = {
+export const LoggerConfig: Record<TransportType, LoggerModuleConfig> = {
   console: {
     level: 'info',
     transports: ['console'],
-    formatter: 'ecs',
-  },
-  elastic: {
-    level: 'info',
-    transports: ['elastic', 'console'],
     formatter: 'ecs',
   },
   cloudwatch: {
@@ -75,99 +33,169 @@ export const LoggerConfig: Record<'console' | 'elastic' | 'cloudwatch', LoggerMo
     transports: ['cloudwatch', 'console'],
     formatter: 'ecs',
   },
+  elastic: {
+    level: 'info',
+    transports: ['elastic', 'console'],
+    formatter: 'ecs',
+  },
 };
 ```
 
 ---
 
-### 🧠 Uso no Controller (Exemplo real)
+### Formatador (`logger.formatter.ts`)
+
+Utiliza o `@elastic/ecs-winston-format` para padronizar os logs no formato ECS:
 
 ```ts
-import { Controller, Get } from '@nestjs/common';
-import { AppLogger } from './logger/logger.service';
+export const ecsFormatter = ecsFormat({ convertReqRes: true });
+```
 
-@Controller()
-export class AppController {
-  constructor(private readonly logger: AppLogger) {}
+---
 
-  @Get()
-  getHello(): string {
-    this.logger.log('Página acessada com sucesso.', 'Default');
-    this.logger.warn('Aviso de teste', 'Default');
-    this.logger.error('Erro de teste', 'Default', 'Stack trace opcional');
-    return 'Hello World!';
-  }
+### Módulo NestJS (`logger.module.ts`)
 
-  @Get('user-log')
-  testUserLog(): string {
-    this.logger.log('Usuário criou uma conta', 'UserModule', {
-      userId: 'user123',
-      action: 'CREATE_ACCOUNT',
-      details: { username: 'gabriel', email: 'gabriel@email.com' },
-    });
-    return 'Log de usuário registrado!';
-  }
+Exponibiliza a instância `AppLogger` como provider:
+
+```ts
+@Module({
+  providers: [AppLogger],
+  exports: [AppLogger],
+})
+export class LoggerModule {}
+```
+
+---
+
+### Serviço (`logger.service.ts`)
+
+Classe principal para geração dos logs:
+
+- `log`: nível info
+- `warn`: nível warn
+- `error`: nível error
+- `buildLogObject`: retorna o objeto formatado (útil para testes ou inspeção)
+
+#### Exemplo:
+
+```ts
+this.logger.log('Usuário logado com sucesso', 'AuthController', {
+  userId: 123,
+  action: 'login',
+  details: { ip: '192.168.0.1' },
+});
+```
+
+---
+
+## 🚚 Transports Suportados
+
+Mapeados em `logger.transports.ts`, cada transport é registrado conforme a chave:
+
+```ts
+export const transportMap = {
+  console: consoleTransport,
+  elastic: elasticTransport,
+  cloudwatch: cloudWatchTransport,
+};
+```
+
+Você pode adicionar novos transports personalizados adicionando novos arquivos na pasta `transports/`.
+
+---
+
+## 🧠 Metadados (`logger.types.ts`)
+
+A interface `LogMeta` permite enriquecer o log com:
+
+```ts
+export interface LogMeta {
+  userId?: number;
+  action?: string;
+  details?: Record<string, unknown>;
+  [key: string]: unknown;
 }
 ```
 
----
-
-### 📄 Formato de Log Padrão (ECS)
-
-Exemplo de estrutura de log gerado:
-
-```json
-{
-  "@timestamp": "2025-07-03T18:00:00.000Z",
-  "log.level": "info",
-  "message": "Usuário criou uma conta",
-  "log": { "logger": "UserModule" },
-  "user": { "id": "user123" },
-  "event": { "action": "CREATE_ACCOUNT" },
-  "labels": {
-    "username": "gabriel",
-    "email": "gabriel@email.com"
-  }
-}
-```
+Essas informações são convertidas automaticamente para os campos ECS como `user.id`, `event.action`, `labels`.
 
 ---
 
-### 🧹 APIs do AppLogger
+## 📘 Uso no NestJS
+
+### 1. Importação no módulo principal
 
 ```ts
-log(
-  message: string,
-  context?: string,
-  meta?: LogMeta,
-  transport?: 'console' | 'elastic' | 'cloudwatch',
-): void
+import { LoggerModule } from './logger/logger.module';
+
+@Module({
+  imports: [LoggerModule],
+})
+export class AppModule {}
 ```
 
-```ts
-error(
-  message: string,
-  context?: string,
-  traceOrMeta?: string | LogMeta,
-  transport?: 'console' | 'elastic' | 'cloudwatch',
-): void
-```
+### 2. Injeção no serviço ou controller
 
 ```ts
-warn(
-  message: string,
-  context?: string,
-  meta?: LogMeta,
-  transport?: 'console' | 'elastic' | 'cloudwatch',
-): void
+constructor(private readonly logger: AppLogger) {}
+```
+
+### 3. Exemplos de uso
+
+```ts
+this.logger.log('Mensagem informativa', 'MeuContexto', { userId: 1 });
+
+this.logger.warn('Atenção com operação inválida', 'AuthService', {
+  action: 'login-failed',
+  details: { ip: '127.0.0.1' },
+});
+
+this.logger.error('Erro crítico', 'ProdutosService', 'Stacktrace do erro');
 ```
 
 ---
 
-### 🛡️ Boas práticas
+## 🐞 Troubleshooting
 
-- **Não precisa se preocupar com a estrutura dos logs**, basta enviar os dados no objeto `meta`.
-- Os campos `userId`, `action` e `details` são tratados automaticamente conforme o [ECS](https://www.elastic.co/guide/en/ecs/current/index.html).
-- Informações extras são adicionadas como `labels`.
+- **Logger não imprime no console**: verifique se o nível (`level`) em `LoggerConfig` está abaixo ou igual ao nível atual de log.
+- **Problemas com CloudWatch ou Elastic**: certifique-se de que as credenciais, permissões e configurações de destino estão corretas.
 
 ---
+
+## 📌 Observações
+
+- A instância de logger é escopo `TRANSIENT`, ou seja, é criada para cada injeção. Isso permite que o `context` seja dinâmico e isolado por uso.
+- Campos extras que não são `userId`, `action` ou `details` também são incluídos no `labels`.
+
+---
+
+## 🛠️ Futuras Melhorias (Sugestões)
+
+- Suporte a filtros de log por ambiente
+- Integração com Sentry
+- Inclusão de requestId automático em cada log
+
+---
+
+## 📁 Estrutura de Arquivos
+
+```
+logger/
+│
+├── logger.module.ts
+├── logger.service.ts
+├── logger.config.ts
+├── logger.formatter.ts
+├── logger.transports.ts
+├── logger.types.ts
+└── transports/
+    ├── console.transport.ts
+    ├── elastic.transport.ts
+    └── cloudwatch.transport.ts
+```
+
+---
+
+## 📄 Licença
+
+Esse módulo pode ser reutilizado e customizado conforme a necessidade da equipe. Caso utilize serviços externos como AWS CloudWatch ou Elastic Cloud, consulte suas respectivas políticas de uso.

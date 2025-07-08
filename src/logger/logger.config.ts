@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 export type TransportType = 'console' | 'elastic' | 'cloudwatch';
 export type FormatterType = 'ecs';
 export type LogLevel = 'info' | 'warn' | 'error' | 'debug';

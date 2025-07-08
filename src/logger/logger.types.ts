@@ -1,5 +1,6 @@
+/* eslint-disable prettier/prettier */
 export interface LogMeta {
-  userId?: string;
+  userId?: number;
   action?: string;
   details?: Record<string, unknown>;
   [key: string]: unknown;

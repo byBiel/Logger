@@ -1,3 +1,4 @@
+/* eslint-disable prettier/prettier */
 import { LogMeta } from './logger.types';
 
 export function toECSFields(
