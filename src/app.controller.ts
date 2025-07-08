@@ -44,7 +44,7 @@ export class AppController {
       },
     };
 
-    this.logger.log('Usuário criou uma conta', 'UserModule', user);
+    this.logger.log('Usuário criou uma conta', 'UserModule', { user });
     return 'Log de criação de usuário registrado!';
   }
 
@@ -56,7 +56,9 @@ export class AppController {
       processador: 'i9',
       memoria: '16GB',
     };
-    this.logger.log('Computador criado com sucesso', 'InfraModule', computador);
+    this.logger.log('Computador criado com sucesso', 'InfraModule', {
+      computador,
+    });
 
     return 'Log de computador registrado!';
   }
